@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	//"go.mongodb.org/mongo-driver/bson"
-	//"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,10 +38,11 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//create the user 
-	newUser := models.User{
-		Username: req.Username,
-		Email: req.Email,
-		Password: string(hashedPassword),
+newUser := models.User{
+		Username:  req.Username,
+		Email:     req.Email,
+		Password:  string(hashedPassword),
+		Workspaces: []primitive.ObjectID{},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -52,37 +53,37 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := result.InsertedID.(primitive.ObjectID)
 
-	// //Creating a default workspace for the user as "My Tasks"
-	// collectionWorkspace := config.GetCollection("workspaces")
-	// defaultWorkspace := models.Workspace{
-	// 	UserID: result.InsertedID.(primitive.ObjectID),
-	// 	Name: "My Tasks",
-	// 	Tasks: []primitive.ObjectID{},
-	// 	CreatedAt: time.Now(),
-	// 	UpdatedAt:time.Now(),
-	// }
 
-	// workspaceResult , err := collectionWorkspace.InsertOne(r.Context(),defaultWorkspace)
-	// if err != nil {
-	// 	utils.SendError(w, "Failed to create deafult workspace", http.StatusInternalServerError)
-	// 	return 
-	// }
+	//Creating a default workspace for the user as "My Tasks"
+	collectionWorkspace := config.GetCollection("workspaces")
+	defaultWorkspace := models.Workspace{
+		UserID: result.InsertedID.(primitive.ObjectID),
+		Name: "My Tasks",
+		Tasks: []primitive.ObjectID{},
+		CreatedAt: time.Now(),
+		UpdatedAt:time.Now(),
+	}
 
-	// _, err = collectionUsers.UpdateByID(
-	// 	r.Context(),
-	// 	result.InsertedID,
-	// 	bson.M{
-	// 	"$push": bson.M{
-	// 		"workspaces": []primitive.ObjectID{workspaceResult.InsertedID.(primitive.ObjectID)},
-	// 	},
-	// },
-	// )
+	workspaceResult , err := collectionWorkspace.InsertOne(r.Context(),defaultWorkspace)
+	if err != nil {
+		utils.SendError(w, "Failed to create deafult workspace", http.StatusInternalServerError)
+		return 
+	}
 
-	// if err != nil {
-	// 	utils.SendError(w, "failed to link the Workspace", http.StatusInternalServerError)
-	// 	return
-	// }
+	workspaceID := workspaceResult.InsertedID.(primitive.ObjectID)
+
+_, err = collectionUsers.UpdateByID(
+		r.Context(),
+		userID,
+		bson.M{"$push": bson.M{"workspaces": workspaceID}},
+	)
+	if err != nil {
+		utils.SendError(w, "Failed to link workspace to user", http.StatusInternalServerError)
+		return
+	}
+
 
 	//generate JWT token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -97,13 +98,13 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//response of user creadeted
-	utils.SendResponse(w, map[string]interface{}{
+utils.SendResponse(w, map[string]interface{}{
 		"token": tokenString,
 		"user": map[string]interface{}{
-			"id":       result.InsertedID,
-			"username": newUser.Username,
-			"email":    newUser.Email,
-			//"workspace": workspaceResult.InsertedID,
+			"id":        userID,
+			"username":  newUser.Username,
+			"email":     newUser.Email,
+			"workspaces": []primitive.ObjectID{workspaceID},
 		},
 	}, http.StatusCreated)
 }
