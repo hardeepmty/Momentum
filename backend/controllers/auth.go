@@ -56,7 +56,7 @@ newUser := models.User{
 	userID := result.InsertedID.(primitive.ObjectID)
 
 
-	//Creating a default workspace for the user as "My Tasks"
+	//creating a default workspace for the user as "My Tasks"
 	collectionWorkspace := config.GetCollection("workspaces")
 	defaultWorkspace := models.Workspace{
 		UserID: result.InsertedID.(primitive.ObjectID),
@@ -111,3 +111,48 @@ utils.SendResponse(w, map[string]interface{}{
 
 
 
+func Login(w http.ResponseWriter, r *http.Request) {
+	var req models.AuthRequest
+	if err := utils.ParseBody(r, &req) ; err !=nil {
+		utils.SendError(w, "invalid req", http.StatusBadRequest)
+		return 
+	}
+
+	//find the user 
+	collection := config.GetCollection("users")
+	var user models.User
+	err := collection.FindOne(r.Context(),map[string]interface{}{"email":req.Email}).Decode(&user)
+	if err != nil {
+		utils.SendError(w, "Invalid creds", http.StatusUnauthorized)
+		return 
+	}
+
+	//compare the password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password),[]byte(req.Password)); err != nil {
+		utils.SendError(w, "invalid creds", http.StatusUnauthorized)
+		return
+	} 
+
+	//generate the token
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"userId": user.ID,
+		"exp": time.Now().Add(time.Hour*24).Unix() ,
+	})
+
+	tokenString, err := token.SignedString([]byte("hardeep"))
+
+	if err != nil {
+		utils.SendError(w, "cannot gen token", http.StatusInternalServerError)
+		return 
+	}
+
+	//send the user as response
+		utils.SendResponse(w, map[string]interface{}{
+		"token": tokenString,
+		"user": map[string]interface{}{
+			"id":       user.ID,
+			"username": user.Username,
+			"email":    user.Email,
+		},
+	}, http.StatusOK)
+}

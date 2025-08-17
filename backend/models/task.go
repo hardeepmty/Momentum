@@ -6,7 +6,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// Task represents a task item
 type Task struct {
 	ID          primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
 	UserID      primitive.ObjectID  `json:"userId" bson:"userId" validate:"required"`

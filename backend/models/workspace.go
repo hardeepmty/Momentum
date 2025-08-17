@@ -6,7 +6,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// Workspace represents a task workspace
 type Workspace struct {
 	ID        primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
 	UserID    primitive.ObjectID   `json:"userId" bson:"userId" validate:"required"`

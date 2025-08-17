@@ -10,8 +10,8 @@ func RegisterRoutes() *mux.Router {
 	authRouter := r.PathPrefix("/auth").Subrouter()
 	AuthRoutes(authRouter)
 
-	// apiRouter := r.PathPrefix("/api").Subrouter()
-	// PostRoutes(apiRouter) 
+	apiRouter := r.PathPrefix("/api").Subrouter()
+	TaskRoutes(apiRouter) 
 
 	return r
 }
